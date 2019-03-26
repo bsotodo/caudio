@@ -23,7 +23,7 @@ main =
 
 
 type alias Model =
-    { volume : String, mute : Bool, muteRes : MuteResponse, error : String }
+    { volume : String, mute : Bool, muteRes : ApiResponse, error : String }
 
 
 init : () -> ( Model, Cmd Msg )
@@ -38,28 +38,28 @@ init _ =
 
 
 type Msg
-    = SetVolume String 
-    | Mute Bool
-    | GotMuteResponse (Result Http.Error MuteResponse)
+    = SetVolume String
+    | SetMute Bool
+    | HandleApiResponse (Result Http.Error ApiResponse)
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
-        Mute True ->
-            ( { model | mute = True }, postMute "on" )
+        SetMute True ->
+            ( { model | mute = True }, setMute "on" )
 
-        Mute False ->
-            ( { model | mute = False }, postMute "off" )
-
-        GotMuteResponse (Ok rec) ->
-            ( { model | muteRes = rec }, Cmd.none )
-
-        GotMuteResponse (Err _) ->
-            ( { model | error = "Something went wrong with the request" }, Cmd.none )
+        SetMute False ->
+            ( { model | mute = False }, setMute "off" )
 
         SetVolume volume ->
-            ( { model | volume = volume }, postVolume volume )
+            ( { model | volume = volume }, setVolume volume )
+
+        HandleApiResponse (Ok rec) ->
+            ( { model | muteRes = rec }, Cmd.none )
+
+        HandleApiResponse (Err _) ->
+            ( { model | error = "Something went wrong with the request" }, Cmd.none )
 
 
 
@@ -87,7 +87,7 @@ audioControlView model =
             [ input
                 [ type_ "checkbox"
                 , checked (model.mute == True)
-                , onCheck (\isChecked -> Mute isChecked)
+                , onCheck (\isChecked -> SetMute isChecked)
                 ]
                 []
             , text "Mute"
@@ -107,8 +107,36 @@ audioControlView model =
         ]
 
 
-postMuteBody : String -> Encode.Value
-postMuteBody param =
+
+-- REQUESTS
+
+
+type alias Endpoints =
+    { audio : String }
+
+
+endpoints : Endpoints
+endpoints =
+    { audio = "http://192.168.0.241:54480/sony/audio" }
+
+
+type alias ApiResponse =
+    { result : List String, id : Int }
+
+
+apiResponseDecoder : Decoder ApiResponse
+apiResponseDecoder =
+    map2 ApiResponse
+        (field "result" (list string))
+        (field "id" int)
+
+
+
+-- MUTE
+
+
+setMuteBody : String -> Encode.Value
+setMuteBody param =
     Encode.object
         [ ( "method", Encode.string "setAudioMute" )
         , ( "id", Encode.int 601 )
@@ -117,28 +145,21 @@ postMuteBody param =
         ]
 
 
-type alias MuteResponse =
-    { result : List String, id : Int }
-
-
-muteResponseDecoder : Decoder MuteResponse
-muteResponseDecoder =
-    map2 MuteResponse
-        (field "result" (list string))
-        (field "id" int)
-
-
-postMute : String -> Cmd Msg
-postMute param =
+setMute : String -> Cmd Msg
+setMute param =
     Http.post
-        { url = "http://192.168.0.241:54480/sony/audio"
-        , body = Http.jsonBody (postMuteBody param)
-        , expect = Http.expectJson GotMuteResponse muteResponseDecoder
+        { url = endpoints.audio
+        , body = Http.jsonBody (setMuteBody param)
+        , expect = Http.expectJson HandleApiResponse apiResponseDecoder
         }
 
 
-postVolumeBody : String -> Encode.Value
-postVolumeBody volume =
+
+-- VOLUME
+
+
+setVolumeBody : String -> Encode.Value
+setVolumeBody volume =
     Encode.object
         [ ( "method", Encode.string "setAudioVolume" )
         , ( "id", Encode.int 98 )
@@ -147,10 +168,10 @@ postVolumeBody volume =
         ]
 
 
-postVolume : String -> Cmd Msg
-postVolume volume =
+setVolume : String -> Cmd Msg
+setVolume volume =
     Http.post
-        { url = "http://192.168.0.241:54480/sony/audio"
-        , body = Http.jsonBody (postVolumeBody volume)
-        , expect = Http.expectJson GotMuteResponse muteResponseDecoder
+        { url = endpoints.audio
+        , body = Http.jsonBody (setVolumeBody volume)
+        , expect = Http.expectJson HandleApiResponse apiResponseDecoder
         }
