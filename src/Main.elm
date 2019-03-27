@@ -26,6 +26,7 @@ type alias Model =
     { volume : String, mute : Bool, muteRes : ApiResponse, error : String }
 
 
+-- TODO: load initial data from the api
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { volume = "5", mute = False, muteRes = { result = [ "" ], id = -1 }, error = "" }
@@ -43,6 +44,7 @@ type Msg
     | HandleApiResponse (Result Http.Error ApiResponse)
 
 
+-- TODO: update model based on the server response
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -77,7 +79,10 @@ subscriptions model =
 
 view : Model -> Html Msg
 view model =
-    div [ class "root" ] [ audioControlView model ]
+    div [ class "root" ]
+        [ audioControlView model
+        , text model.error
+        ]
 
 
 audioControlView : Model -> Html Msg
