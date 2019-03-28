@@ -1,9 +1,9 @@
 module Main exposing (main)
 
 import Browser
-import Html exposing (Html, div, h1, input, label, text)
+import Html exposing (Html, div, input, label, text)
 import Html.Attributes exposing (checked, class, max, min, name, step, type_, value)
-import Html.Events exposing (onCheck, onClick, onInput)
+import Html.Events exposing (onCheck, onInput)
 import Http
 import Json.Decode exposing (Decoder, field, int, list, map2, string)
 import Json.Encode as Encode
@@ -23,13 +23,21 @@ main =
 
 
 type alias Model =
-    { volume : String, mute : Bool, muteRes : ApiResponse, error : String }
+    { volume : String, mute : Bool, muteRes : ApiResponse, error : String, audioInput : String }
+
 
 
 -- TODO: load initial data from the api
+
+
 init : () -> ( Model, Cmd Msg )
 init _ =
-    ( { volume = "5", mute = False, muteRes = { result = [ "" ], id = -1 }, error = "" }
+    ( { volume = "5"
+      , mute = False
+      , muteRes = { result = [ "" ], id = -1 }
+      , error = ""
+      , audioInput = "extInput:hdmi"
+      }
     , Cmd.none
     )
 
@@ -42,9 +50,13 @@ type Msg
     = SetVolume String
     | SetMute Bool
     | HandleApiResponse (Result Http.Error ApiResponse)
+    | ChangeAudioInput String
+
 
 
 -- TODO: update model based on the server response
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
@@ -56,6 +68,9 @@ update msg model =
 
         SetVolume volume ->
             ( { model | volume = volume }, setVolume volume )
+
+        ChangeAudioInput source ->
+            ( { model | audioInput = source }, changeAudioInput source )
 
         HandleApiResponse (Ok rec) ->
             ( { model | muteRes = rec }, Cmd.none )
@@ -81,6 +96,7 @@ view : Model -> Html Msg
 view model =
     div [ class "root" ]
         [ audioControlView model
+        , audioInputView model
         , text model.error
         ]
 
@@ -112,17 +128,59 @@ audioControlView model =
         ]
 
 
+audioInputView : Model -> Html Msg
+audioInputView model =
+    div []
+        [ label []
+            [ input
+                [ type_ "radio"
+                , name "source-input"
+                , value "extInput:btAudio"
+                , onInput (\value -> ChangeAudioInput value)
+                , checked (model.audioInput == "extInput:btAudio")
+                ]
+                []
+            , text "Bluetooth"
+            ]
+        , label []
+            [ input
+                [ type_ "radio"
+                , name "source-input"
+                , value "extInput:line?port=1"
+                , onInput (\value -> ChangeAudioInput value)
+                , checked (model.audioInput == "extInput:line?port=1")
+                ]
+                []
+            , text "Audio in (Port 1)"
+            ]
+        , label []
+            [ input
+                [ type_ "radio"
+                , name "source-input"
+                , value "extInput:hdmi"
+                , onInput (\value -> ChangeAudioInput value)
+                , checked (model.audioInput == "extInput:hdmi")
+                ]
+                []
+            , text "HDMI"
+            ]
+        ]
+
+
+
 
 -- REQUESTS
 
 
 type alias Endpoints =
-    { audio : String }
+    { audio : String, avContent : String }
 
 
 endpoints : Endpoints
 endpoints =
-    { audio = "http://192.168.0.241:54480/sony/audio" }
+    { audio = "http://192.168.0.241:54480/sony/audio"
+    , avContent = "http://192.168.0.241:54480/sony/avContent"
+    }
 
 
 type alias ApiResponse =
@@ -178,5 +236,28 @@ setVolume volume =
     Http.post
         { url = endpoints.audio
         , body = Http.jsonBody (setVolumeBody volume)
+        , expect = Http.expectJson HandleApiResponse apiResponseDecoder
+        }
+
+
+
+-- AUDIO INPUT
+
+
+changeAudioInputBody : String -> Encode.Value
+changeAudioInputBody source =
+    Encode.object
+        [ ( "method", Encode.string "setPlayContent" )
+        , ( "id", Encode.int 47 )
+        , ( "version", Encode.string "1.2" )
+        , ( "params", Encode.list Encode.object [ [ ( "uri", Encode.string source ) ] ] )
+        ]
+
+
+changeAudioInput : String -> Cmd Msg
+changeAudioInput source =
+    Http.post
+        { url = endpoints.avContent
+        , body = Http.jsonBody (changeAudioInputBody source)
         , expect = Http.expectJson HandleApiResponse apiResponseDecoder
         }
