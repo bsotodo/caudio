@@ -23,7 +23,13 @@ main =
 
 
 type alias Model =
-    { volume : String, mute : Bool, muteRes : ApiResponse, error : String, audioInput : String }
+    { volume : String
+    , mute : Bool
+    , muteRes : ApiResponse
+    , error : String
+    , audioInput : String
+    , powerStatus : String
+    }
 
 
 
@@ -37,6 +43,7 @@ init _ =
       , muteRes = { result = [ "" ], id = -1 }
       , error = ""
       , audioInput = "extInput:hdmi"
+      , powerStatus = "off"
       }
     , Cmd.none
     )
@@ -51,6 +58,7 @@ type Msg
     | SetMute Bool
     | HandleApiResponse (Result Http.Error ApiResponse)
     | ChangeAudioInput String
+    | ChangePowerStatus String
 
 
 
@@ -71,6 +79,9 @@ update msg model =
 
         ChangeAudioInput source ->
             ( { model | audioInput = source }, changeAudioInput source )
+
+        ChangePowerStatus status ->
+            ( { model | powerStatus = status }, changePowerStatus status )
 
         HandleApiResponse (Ok rec) ->
             ( { model | muteRes = rec }, Cmd.none )
@@ -97,6 +108,7 @@ view model =
     div [ class "root" ]
         [ audioControlView model
         , audioInputView model
+        , powerStatusView model.powerStatus
         , text model.error
         ]
 
@@ -167,19 +179,47 @@ audioInputView model =
         ]
 
 
+powerStatusView : String -> Html Msg
+powerStatusView status =
+    div []
+        [ label []
+            [ input
+                [ type_ "radio"
+                , name "system-power"
+                , value "off"
+                , onInput (\value -> ChangePowerStatus value)
+                , checked (status == "off")
+                ]
+                []
+            , text "Off"
+            ]
+        , label []
+            [ input
+                [ type_ "radio"
+                , name "system-power"
+                , value "active"
+                , onInput (\value -> ChangePowerStatus value)
+                , checked (status == "active")
+                ]
+                []
+            , text "On"
+            ]
+        ]
+
 
 
 -- REQUESTS
 
 
 type alias Endpoints =
-    { audio : String, avContent : String }
+    { audio : String, avContent : String, system : String }
 
 
 endpoints : Endpoints
 endpoints =
     { audio = "http://192.168.0.241:54480/sony/audio"
     , avContent = "http://192.168.0.241:54480/sony/avContent"
+    , system = "http://192.168.0.241:54480/sony/system"
     }
 
 
@@ -259,5 +299,28 @@ changeAudioInput source =
     Http.post
         { url = endpoints.avContent
         , body = Http.jsonBody (changeAudioInputBody source)
+        , expect = Http.expectJson HandleApiResponse apiResponseDecoder
+        }
+
+
+
+-- POWER STATUS
+
+
+changePowerStatusBody : String -> Encode.Value
+changePowerStatusBody status =
+    Encode.object
+        [ ( "method", Encode.string "setPowerStatus" )
+        , ( "id", Encode.int 55 )
+        , ( "version", Encode.string "1.1" )
+        , ( "params", Encode.list Encode.object [ [ ( "status", Encode.string status ) ] ] )
+        ]
+
+
+changePowerStatus : String -> Cmd Msg
+changePowerStatus status =
+    Http.post
+        { url = endpoints.system
+        , body = Http.jsonBody (changePowerStatusBody status)
         , expect = Http.expectJson HandleApiResponse apiResponseDecoder
         }

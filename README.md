@@ -9,3 +9,4 @@ At the moment the app controls just one speaker.
 - volume up/down
 - mute
 - change audio input (Audio In, HDMI, Bluetooth)
+- power on/off
