@@ -18,6 +18,29 @@ main =
         }
 
 
+type PowerStatus
+    = Active
+    | Off
+
+
+stringToPowerStatus : String -> PowerStatus
+stringToPowerStatus powerStatus =
+    if powerStatus == "active" then
+        Active
+
+    else
+        Off
+
+
+powerStatusToString : PowerStatus -> String
+powerStatusToString powerStatus =
+    if powerStatus == Active then
+        "active"
+
+    else
+        "off"
+
+
 
 -- MODEL
 
@@ -28,7 +51,7 @@ type alias Model =
     , muteRes : ApiResponse
     , error : String
     , audioInput : String
-    , powerStatus : String
+    , powerStatus : PowerStatus
     }
 
 
@@ -43,7 +66,7 @@ init _ =
       , muteRes = { result = [ "" ], id = -1 }
       , error = ""
       , audioInput = "extInput:hdmi"
-      , powerStatus = "off"
+      , powerStatus = Off
       }
     , Cmd.none
     )
@@ -58,7 +81,7 @@ type Msg
     | SetMute Bool
     | HandleApiResponse (Result Http.Error ApiResponse)
     | ChangeAudioInput String
-    | ChangePowerStatus String
+    | ChangePowerStatus PowerStatus
 
 
 
@@ -80,8 +103,8 @@ update msg model =
         ChangeAudioInput source ->
             ( { model | audioInput = source }, changeAudioInput source )
 
-        ChangePowerStatus status ->
-            ( { model | powerStatus = status }, changePowerStatus status )
+        ChangePowerStatus powerStatus ->
+            ( { model | powerStatus = powerStatus }, changePowerStatus powerStatus )
 
         HandleApiResponse (Ok rec) ->
             ( { model | muteRes = rec }, Cmd.none )
@@ -179,16 +202,16 @@ audioInputView model =
         ]
 
 
-powerStatusView : String -> Html Msg
-powerStatusView status =
+powerStatusView : PowerStatus -> Html Msg
+powerStatusView powerStatus =
     div []
         [ label []
             [ input
                 [ type_ "radio"
                 , name "system-power"
                 , value "off"
-                , onInput (\value -> ChangePowerStatus value)
-                , checked (status == "off")
+                , onInput (\value -> ChangePowerStatus (stringToPowerStatus value))
+                , checked (powerStatus == Off)
                 ]
                 []
             , text "Off"
@@ -198,8 +221,8 @@ powerStatusView status =
                 [ type_ "radio"
                 , name "system-power"
                 , value "active"
-                , onInput (\value -> ChangePowerStatus value)
-                , checked (status == "active")
+                , onInput (\value -> ChangePowerStatus (stringToPowerStatus value))
+                , checked (powerStatus == Active)
                 ]
                 []
             , text "On"
@@ -307,20 +330,20 @@ changeAudioInput source =
 -- POWER STATUS
 
 
-changePowerStatusBody : String -> Encode.Value
-changePowerStatusBody status =
+changePowerStatusBody : PowerStatus -> Encode.Value
+changePowerStatusBody powerStatus =
     Encode.object
         [ ( "method", Encode.string "setPowerStatus" )
         , ( "id", Encode.int 55 )
         , ( "version", Encode.string "1.1" )
-        , ( "params", Encode.list Encode.object [ [ ( "status", Encode.string status ) ] ] )
+        , ( "params", Encode.list Encode.object [ [ ( "status", Encode.string (powerStatusToString powerStatus) ) ] ] )
         ]
 
 
-changePowerStatus : String -> Cmd Msg
-changePowerStatus status =
+changePowerStatus : PowerStatus -> Cmd Msg
+changePowerStatus powerStatus =
     Http.post
         { url = endpoints.system
-        , body = Http.jsonBody (changePowerStatusBody status)
+        , body = Http.jsonBody (changePowerStatusBody powerStatus)
         , expect = Http.expectJson HandleApiResponse apiResponseDecoder
         }
