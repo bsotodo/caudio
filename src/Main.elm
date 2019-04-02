@@ -18,6 +18,10 @@ main =
         }
 
 
+
+-- CUSTOM TYPES
+
+
 type PowerStatus
     = Active
     | Off
@@ -41,6 +45,41 @@ powerStatusToString powerStatus =
         "off"
 
 
+type AudioInput
+    = HDMI
+    | Bluetooth
+    | AudioIn
+
+
+audioInputToString : AudioInput -> String
+audioInputToString audioInput =
+    case audioInput of
+        HDMI ->
+            "extInput:hdmi"
+
+        Bluetooth ->
+            "extInput:btAudio"
+
+        AudioIn ->
+            "extInput:line?port=1"
+
+
+stringToAudioInput : String -> AudioInput
+stringToAudioInput audioInput =
+    case audioInput of
+        "extInput:hdmi" ->
+            HDMI
+
+        "extInput:btAudio" ->
+            Bluetooth
+
+        "extInput:line?port=1" ->
+            AudioIn
+
+        _ ->
+            AudioIn
+
+
 
 -- MODEL
 
@@ -50,7 +89,7 @@ type alias Model =
     , mute : Bool
     , muteRes : ApiResponse
     , error : String
-    , audioInput : String
+    , audioInput : AudioInput
     , powerStatus : PowerStatus
     }
 
@@ -65,7 +104,7 @@ init _ =
       , mute = False
       , muteRes = { result = [ "" ], id = -1 }
       , error = ""
-      , audioInput = "extInput:hdmi"
+      , audioInput = HDMI
       , powerStatus = Off
       }
     , Cmd.none
@@ -80,7 +119,7 @@ type Msg
     = SetVolume String
     | SetMute Bool
     | HandleApiResponse (Result Http.Error ApiResponse)
-    | ChangeAudioInput String
+    | ChangeAudioInput AudioInput
     | ChangePowerStatus PowerStatus
 
 
@@ -100,8 +139,8 @@ update msg model =
         SetVolume volume ->
             ( { model | volume = volume }, setVolume volume )
 
-        ChangeAudioInput source ->
-            ( { model | audioInput = source }, changeAudioInput source )
+        ChangeAudioInput audioInput ->
+            ( { model | audioInput = audioInput }, changeAudioInput audioInput )
 
         ChangePowerStatus powerStatus ->
             ( { model | powerStatus = powerStatus }, changePowerStatus powerStatus )
@@ -130,7 +169,7 @@ view : Model -> Html Msg
 view model =
     div [ class "root" ]
         [ audioControlView model
-        , audioInputView model
+        , audioInputView model.audioInput
         , powerStatusView model.powerStatus
         , text model.error
         ]
@@ -163,16 +202,16 @@ audioControlView model =
         ]
 
 
-audioInputView : Model -> Html Msg
-audioInputView model =
+audioInputView : AudioInput -> Html Msg
+audioInputView audioInput =
     div []
         [ label []
             [ input
                 [ type_ "radio"
                 , name "source-input"
                 , value "extInput:btAudio"
-                , onInput (\value -> ChangeAudioInput value)
-                , checked (model.audioInput == "extInput:btAudio")
+                , onInput (\value -> ChangeAudioInput (stringToAudioInput value))
+                , checked (audioInput == Bluetooth)
                 ]
                 []
             , text "Bluetooth"
@@ -182,8 +221,8 @@ audioInputView model =
                 [ type_ "radio"
                 , name "source-input"
                 , value "extInput:line?port=1"
-                , onInput (\value -> ChangeAudioInput value)
-                , checked (model.audioInput == "extInput:line?port=1")
+                , onInput (\value -> ChangeAudioInput (stringToAudioInput value))
+                , checked (audioInput == AudioIn)
                 ]
                 []
             , text "Audio in (Port 1)"
@@ -193,8 +232,8 @@ audioInputView model =
                 [ type_ "radio"
                 , name "source-input"
                 , value "extInput:hdmi"
-                , onInput (\value -> ChangeAudioInput value)
-                , checked (model.audioInput == "extInput:hdmi")
+                , onInput (\value -> ChangeAudioInput (stringToAudioInput value))
+                , checked (audioInput == HDMI)
                 ]
                 []
             , text "HDMI"
@@ -308,20 +347,20 @@ setVolume volume =
 
 
 changeAudioInputBody : String -> Encode.Value
-changeAudioInputBody source =
+changeAudioInputBody audioInput =
     Encode.object
         [ ( "method", Encode.string "setPlayContent" )
         , ( "id", Encode.int 47 )
         , ( "version", Encode.string "1.2" )
-        , ( "params", Encode.list Encode.object [ [ ( "uri", Encode.string source ) ] ] )
+        , ( "params", Encode.list Encode.object [ [ ( "uri", Encode.string audioInput ) ] ] )
         ]
 
 
-changeAudioInput : String -> Cmd Msg
-changeAudioInput source =
+changeAudioInput : AudioInput -> Cmd Msg
+changeAudioInput audioInput =
     Http.post
         { url = endpoints.avContent
-        , body = Http.jsonBody (changeAudioInputBody source)
+        , body = Http.jsonBody (changeAudioInputBody (audioInputToString audioInput))
         , expect = Http.expectJson HandleApiResponse apiResponseDecoder
         }
 
