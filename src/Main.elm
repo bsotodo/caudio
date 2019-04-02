@@ -29,20 +29,25 @@ type PowerStatus
 
 stringToPowerStatus : String -> PowerStatus
 stringToPowerStatus powerStatus =
-    if powerStatus == "active" then
-        Active
+    case powerStatus of
+        "active" ->
+            Active
 
-    else
-        Off
+        "off" ->
+            Off
+
+        _ ->
+            Off
 
 
 powerStatusToString : PowerStatus -> String
 powerStatusToString powerStatus =
-    if powerStatus == Active then
-        "active"
+    case powerStatus of
+        Active ->
+            "active"
 
-    else
-        "off"
+        Off ->
+            "off"
 
 
 type AudioInput
