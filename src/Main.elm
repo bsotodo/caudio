@@ -192,7 +192,7 @@ subscriptions model =
 view : Model -> Html Msg
 view model =
     div [ class "root" ]
-        [ audioControlView model
+        [ volumeControlView model
         , audioInputView model.audioInput model.powerStatus
         , powerStatusView model.powerStatus
         , text model.error
@@ -200,8 +200,8 @@ view model =
         ]
 
 
-audioControlView : Model -> Html Msg
-audioControlView model =
+volumeControlView : Model -> Html Msg
+volumeControlView model =
     div [ class "view-audio-control" ]
         [ label []
             [ input
