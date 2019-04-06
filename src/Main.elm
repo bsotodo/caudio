@@ -2,7 +2,7 @@ module Main exposing (main)
 
 import Browser
 import Html exposing (Html, div, input, label, text)
-import Html.Attributes exposing (checked, class, max, min, name, step, type_, value)
+import Html.Attributes exposing (checked, class, disabled, max, min, name, step, type_, value)
 import Html.Events exposing (onCheck, onInput)
 import Http
 import Json.Decode exposing (Decoder, field, int, list, map, map2, string)
@@ -193,7 +193,7 @@ view : Model -> Html Msg
 view model =
     div [ class "root" ]
         [ audioControlView model
-        , audioInputView model.audioInput
+        , audioInputView model.audioInput model.powerStatus
         , powerStatusView model.powerStatus
         , text model.error
         , text (Debug.toString model.apiResponse)
@@ -208,6 +208,7 @@ audioControlView model =
                 [ type_ "checkbox"
                 , checked (model.mute == True)
                 , onCheck (\isChecked -> SetMute isChecked)
+                , disabled (model.powerStatus == Off)
                 ]
                 []
             , text "Mute"
@@ -220,6 +221,7 @@ audioControlView model =
                 , step "1"
                 , value model.volume
                 , onInput (\value -> SetVolume value)
+                , disabled (model.powerStatus == Off)
                 ]
                 []
             , text ("Volume: " ++ model.volume)
@@ -227,8 +229,8 @@ audioControlView model =
         ]
 
 
-audioInputView : AudioInput -> Html Msg
-audioInputView audioInput =
+audioInputView : AudioInput -> PowerStatus -> Html Msg
+audioInputView audioInput powerStatus =
     div []
         [ label []
             [ input
@@ -237,6 +239,7 @@ audioInputView audioInput =
                 , value "extInput:btAudio"
                 , onInput (\value -> ChangeAudioInput (stringToAudioInput value))
                 , checked (audioInput == Bluetooth)
+                , disabled (powerStatus == Off)
                 ]
                 []
             , text "Bluetooth"
@@ -248,6 +251,7 @@ audioInputView audioInput =
                 , value "extInput:line?port=1"
                 , onInput (\value -> ChangeAudioInput (stringToAudioInput value))
                 , checked (audioInput == AudioIn)
+                , disabled (powerStatus == Off)
                 ]
                 []
             , text "Audio in (Port 1)"
@@ -259,6 +263,7 @@ audioInputView audioInput =
                 , value "extInput:hdmi"
                 , onInput (\value -> ChangeAudioInput (stringToAudioInput value))
                 , checked (audioInput == HDMI)
+                , disabled (powerStatus == Off)
                 ]
                 []
             , text "HDMI"
