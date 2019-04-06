@@ -23,7 +23,7 @@ main =
 
 
 type PowerStatus
-    = Active
+    = On
     | Off
 
 
@@ -31,7 +31,7 @@ stringToPowerStatus : String -> PowerStatus
 stringToPowerStatus powerStatus =
     case powerStatus of
         "active" ->
-            Active
+            On
 
         "off" ->
             Off
@@ -43,7 +43,7 @@ stringToPowerStatus powerStatus =
 powerStatusToString : PowerStatus -> String
 powerStatusToString powerStatus =
     case powerStatus of
-        Active ->
+        On ->
             "active"
 
         Off ->
@@ -92,7 +92,7 @@ stringToAudioInput audioInput =
 type alias Model =
     { volume : String
     , mute : Bool
-    , muteRes : ApiResponse
+    , apiResponse : ApiResponse
     , error : String
     , audioInput : AudioInput
     , powerStatus : PowerStatus
@@ -107,7 +107,7 @@ init : () -> ( Model, Cmd Msg )
 init _ =
     ( { volume = "5"
       , mute = False
-      , muteRes = { result = [ "" ], id = -1 }
+      , apiResponse = { result = [ "" ], id = -1 }
       , error = ""
       , audioInput = HDMI
       , powerStatus = Off
@@ -151,10 +151,10 @@ update msg model =
             ( { model | powerStatus = powerStatus }, changePowerStatus powerStatus )
 
         HandleApiResponse (Ok rec) ->
-            ( { model | muteRes = rec }, Cmd.none )
+            ( { model | apiResponse = rec }, Cmd.none )
 
-        HandleApiResponse (Err _) ->
-            ( { model | error = "Something went wrong with the request" }, Cmd.none )
+        HandleApiResponse (Err err) ->
+            ( { model | error = "ERROR:" ++ (Debug.toString err)}, Cmd.none )
 
 
 
@@ -177,6 +177,7 @@ view model =
         , audioInputView model.audioInput
         , powerStatusView model.powerStatus
         , text model.error
+        , text (Debug.toString model.apiResponse)
         ]
 
 
@@ -266,7 +267,7 @@ powerStatusView powerStatus =
                 , name "system-power"
                 , value "active"
                 , onInput (\value -> ChangePowerStatus (stringToPowerStatus value))
-                , checked (powerStatus == Active)
+                , checked (powerStatus == On)
                 ]
                 []
             , text "On"
