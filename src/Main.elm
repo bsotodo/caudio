@@ -5,7 +5,7 @@ import Html exposing (Html, div, input, label, text)
 import Html.Attributes exposing (checked, class, max, min, name, step, type_, value)
 import Html.Events exposing (onCheck, onInput)
 import Http
-import Json.Decode exposing (Decoder, field, int, list, map2, string)
+import Json.Decode exposing (Decoder, field, int, list, map, map2, string)
 import Json.Encode as Encode
 
 
@@ -112,7 +112,7 @@ init _ =
       , audioInput = HDMI
       , powerStatus = Off
       }
-    , Cmd.none
+    , getPowerStatus
     )
 
 
@@ -124,6 +124,7 @@ type Msg
     = SetVolume String
     | SetMute Bool
     | HandleApiResponse (Result Http.Error ApiResponse)
+    | HandlePowerStatusResponse (Result Http.Error PowerStatusRes)
     | ChangeAudioInput AudioInput
     | ChangePowerStatus PowerStatus
 
@@ -154,7 +155,25 @@ update msg model =
             ( { model | apiResponse = rec }, Cmd.none )
 
         HandleApiResponse (Err err) ->
-            ( { model | error = "ERROR:" ++ (Debug.toString err)}, Cmd.none )
+            ( { model | error = "ERROR:" ++ Debug.toString err }, Cmd.none )
+
+        HandlePowerStatusResponse response ->
+            case response of
+                Ok powerStatus ->
+                    ( { model
+                        | powerStatus =
+                            case List.head powerStatus.result of
+                                Just status ->
+                                    stringToPowerStatus status.status
+
+                                Nothing ->
+                                    Off
+                      }
+                    , Cmd.none
+                    )
+
+                Err err ->
+                    ( { model | error = "ERROR:" ++ Debug.toString err }, Cmd.none )
 
 
 
@@ -372,7 +391,7 @@ changeAudioInput audioInput =
 
 
 
--- POWER STATUS
+-- CHANGE POWER STATUS
 
 
 changePowerStatusBody : PowerStatus -> Encode.Value
@@ -391,4 +410,48 @@ changePowerStatus powerStatus =
         { url = endpoints.system
         , body = Http.jsonBody (changePowerStatusBody powerStatus)
         , expect = Http.expectJson HandleApiResponse apiResponseDecoder
+        }
+
+
+
+-- GET POWER STATUS
+
+
+type alias PowerStatusRes =
+    { result : List { status : String }, id : Int }
+
+
+type alias PowerStatusResStatus =
+    { status : String }
+
+
+powerStatusResStatusDec : Decoder PowerStatusResStatus
+powerStatusResStatusDec =
+    map PowerStatusResStatus
+        (field "status" string)
+
+
+powerStatusDecoder : Decoder PowerStatusRes
+powerStatusDecoder =
+    map2 PowerStatusRes
+        (field "result" (list powerStatusResStatusDec))
+        (field "id" int)
+
+
+getPowerStatusBody : Encode.Value
+getPowerStatusBody =
+    Encode.object
+        [ ( "method", Encode.string "getPowerStatus" )
+        , ( "id", Encode.int 50 )
+        , ( "params", Encode.list identity [] )
+        , ( "version", Encode.string "1.1" )
+        ]
+
+
+getPowerStatus : Cmd Msg
+getPowerStatus =
+    Http.post
+        { url = endpoints.system
+        , body = Http.jsonBody getPowerStatusBody
+        , expect = Http.expectJson HandlePowerStatusResponse powerStatusDecoder
         }
