@@ -91,6 +91,7 @@ stringToAudioInput audioInput =
 
 type alias Model =
     { volume : String
+    , volumeTemp : String
     , mute : Bool
     , apiResponse : ApiResponse
     , error : String
@@ -106,6 +107,7 @@ type alias Model =
 init : () -> ( Model, Cmd Msg )
 init _ =
     ( { volume = "5"
+      , volumeTemp = ""
       , mute = False
       , apiResponse = { result = [ "" ], id = -1 }
       , error = ""
@@ -137,10 +139,10 @@ update : Msg -> Model -> ( Model, Cmd Msg )
 update msg model =
     case msg of
         SetMute True ->
-            ( { model | mute = True }, setMute "on" )
+            ( { model | mute = True, volumeTemp = model.volume, volume = "0" }, setVolume "0" )
 
         SetMute False ->
-            ( { model | mute = False }, setMute "off" )
+            ( { model | mute = False, volume = model.volumeTemp, volumeTemp = "" }, setVolume model.volumeTemp )
 
         SetVolume volume ->
             ( { model | volume = volume }, setVolume volume )
@@ -324,29 +326,6 @@ apiResponseDecoder =
     map2 ApiResponse
         (field "result" (list string))
         (field "id" int)
-
-
-
--- MUTE
-
-
-setMuteBody : String -> Encode.Value
-setMuteBody param =
-    Encode.object
-        [ ( "method", Encode.string "setAudioMute" )
-        , ( "id", Encode.int 601 )
-        , ( "version", Encode.string "1.1" )
-        , ( "params", Encode.list Encode.object [ [ ( "mute", Encode.string param ) ] ] )
-        ]
-
-
-setMute : String -> Cmd Msg
-setMute param =
-    Http.post
-        { url = endpoints.audio
-        , body = Http.jsonBody (setMuteBody param)
-        , expect = Http.expectJson HandleApiResponse apiResponseDecoder
-        }
 
 
 
